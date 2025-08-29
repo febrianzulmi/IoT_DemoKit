@@ -277,6 +277,15 @@
 										</p>
 									</a>
 								</li>
+								<li class="nav-item">
+									<a href="/log/systemlog"
+										class="nav-link {% if rule == '/log/systemlog' %}{{ 'active' }}{%endif%}">
+										<i class="nav-icon far fa-circle"></i>
+										<p>
+											System Log
+										</p>
+									</a>
+								</li>
 								{% endif %}
 								{% endif %}
 							</ul>
@@ -373,9 +382,9 @@
 						</li>
 						{%endif%}
 						<li
-							class="nav-item {% if 'system' in rule %}{{ 'menu-open' }}{% endif %}">
+							class="nav-item {% if 'system' in rule and 'log' not in rule %}{{ 'menu-open' }}{% endif %}">
 							<a href="#"
-								class="nav-link {% if 'system' in rule %}{{ 'active' }}{% endif %}">
+								class="nav-link {% if 'system' in rule and 'log' not in rule %}{{ 'active' }}{% endif %}">
 								<i class="nav-icon fas fa-box"></i>
 								<p>
 									System <i class="right fas fa-angle-left"></i>

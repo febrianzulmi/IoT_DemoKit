@@ -1623,6 +1623,178 @@ def logErrorPage():
     return render_template('log/log_error.html', result=result, projectData=projectData, sessionData=sessionData, deviceSetting=deviceSetting, rule=rule, 
                                                  logErrorData=logErrorData, date1=date1, time1=time1, date2=date2, time2=time2)
 
+@app.route('/log/systemlog', methods=['GET','POST'])
+def logSystemPage():
+    projectData = generalFunction.getProjectSetting()
+    sessionData = generalFunction.checkSession()
+    deviceSetting = dbFunction.getDeviceSetting()
+    rule = str(request.url_rule)
+    result = {'state':'', 'message':''}
+    
+    if 'result' in request.args:
+        result = json.loads(request.args['result'])
+    
+    # Get log file sizes
+    log_sizes = getLogFileSizes()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == "clear_daemon":
+            result = clearSystemLog('/var/log/daemon.log', 'daemon')
+        elif action == "clear_syslog":
+            result = clearSystemLog('/var/log/syslog', 'system')
+        elif action == "clear_journal":
+            journal_method = request.form.get('journal_method', 'normal')
+            result = clearJournalLog(journal_method)
+        elif action == "clear_bulk":
+            selected_logs = request.form.get('selected_logs', '').split(',')
+            result = clearBulkLogs(selected_logs)
+        
+        return redirect(url_for('logSystemPage', result=json.dumps(result)))
+    
+    if int(sessionData['state']) == 0:
+        flash('Please Login to Access the Page')
+        return redirect(url_for('login'))
+    
+    return render_template('log/log_system.html', projectData=projectData, sessionData=sessionData, 
+                         deviceSetting=deviceSetting, rule=rule, result=result, log_sizes=log_sizes)
+
+def getLogFileSizes():
+    """Get sizes of log files"""
+    sizes = {}
+    
+    # Daemon log
+    daemon_path = '/var/log/daemon.log'
+    if os.path.exists(daemon_path):
+        try:
+            size = os.path.getsize(daemon_path)
+            sizes['daemon'] = formatFileSize(size)
+        except:
+            sizes['daemon'] = 'Error reading size'
+    else:
+        sizes['daemon'] = 'File not found'
+    
+    # System log
+    syslog_path = '/var/log/syslog'
+    if os.path.exists(syslog_path):
+        try:
+            size = os.path.getsize(syslog_path)
+            sizes['syslog'] = formatFileSize(size)
+        except:
+            sizes['syslog'] = 'Error reading size'
+    else:
+        sizes['syslog'] = 'File not found'
+    
+    # Journal log size (using journalctl)
+    try:
+        import subprocess
+        result = subprocess.run(['journalctl', '--disk-usage'], 
+                              capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            # Parse output like "Archived and active journals take up 1.2G in the file system."
+            output = result.stdout.strip()
+            if 'take up' in output:
+                size_text = output.split('take up')[1].split('in')[0].strip()
+                sizes['journal'] = size_text
+            else:
+                sizes['journal'] = 'Unknown'
+        else:
+            sizes['journal'] = 'Error reading size'
+    except:
+        sizes['journal'] = 'Error reading size'
+    
+    return sizes
+
+def formatFileSize(size_bytes):
+    """Convert bytes to human readable format"""
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    while size_bytes >= 1024 and i < len(size_names) - 1:
+        size_bytes /= 1024.0
+        i += 1
+    
+    return f"{size_bytes:.1f} {size_names[i]}"
+
+def clearSystemLog(log_file, log_type):
+    """Clear system log file"""
+    try:
+        # Check if file exists
+        if not os.path.exists(log_file):
+            return {'state': '0', 'message': f'{log_type.capitalize()} log file not found: {log_file}'}
+        
+        # Clear the log file
+        with open(log_file, 'w') as f:
+            f.write('')
+        
+        return {'state': '1', 'message': f'{log_type.capitalize()} log cleared successfully'}
+    except Exception as e:
+        return {'state': '0', 'message': f'Error clearing {log_type} log: {str(e)}'}
+
+def clearJournalLog(method='normal'):
+    """Clear journalctl logs"""
+    try:
+        import subprocess
+        
+        if method == 'normal':
+            # Normal cleaning - safer approach
+            commands = [
+                ['journalctl', '--vacuum-time=0s'],
+                ['journalctl', '--vacuum-size=0'],
+                ['journalctl', '--rotate']
+            ]
+        else:
+            # Aggressive cleaning - more thorough but may require restart
+            commands = [
+                ['journalctl', '--vacuum-time=0s'],
+                ['journalctl', '--vacuum-size=0'],
+                ['journalctl', '--rotate'],
+                ['systemctl', 'restart', 'systemd-journald']
+            ]
+            
+            # Force cleanup of journal files
+            cleanup_cmd = ['find', '/var/log/journal', '-name', '*.journal*', '-delete']
+            subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=30)
+        
+        for cmd in commands:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                print(f"Warning: Command {' '.join(cmd)} failed: {result.stderr}")
+        
+        method_text = "aggressively" if method == 'aggressive' else "normally"
+        return {'state': '1', 'message': f'Journal log cleared {method_text} successfully'}
+    except Exception as e:
+        return {'state': '0', 'message': f'Error clearing journal log: {str(e)}'}
+
+def clearBulkLogs(selected_logs):
+    """Clear multiple log files"""
+    results = []
+    
+    for log_type in selected_logs:
+        if log_type == 'daemon':
+            result = clearSystemLog('/var/log/daemon.log', 'daemon')
+            results.append(f"Daemon log: {result['message']}")
+        elif log_type == 'syslog':
+            result = clearSystemLog('/var/log/syslog', 'system')
+            results.append(f"System log: {result['message']}")
+        elif log_type == 'journal':
+            result = clearJournalLog('normal')  # Use normal method for bulk operations
+            results.append(f"Journal log: {result['message']}")
+    
+    # Check if all operations were successful
+    success_count = sum(1 for r in results if 'successfully' in r)
+    total_count = len(results)
+    
+    if success_count == total_count:
+        return {'state': '1', 'message': f'All selected logs cleared successfully ({success_count}/{total_count})'}
+    elif success_count > 0:
+        return {'state': '2', 'message': f'Partially successful: {success_count}/{total_count} logs cleared. Details: {" | ".join(results)}'}
+    else:
+        return {'state': '0', 'message': f'Failed to clear logs. Details: {" | ".join(results)}'}
+
 @app.route('/calibration/formula', methods=['GET','POST'])
 def calibrationFormulaPage():
     projectData = generalFunction.getProjectSetting()

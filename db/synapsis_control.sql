@@ -114,7 +114,7 @@ CREATE TABLE `fan` (
 
 LOCK TABLES `fan` WRITE;
 /*!40000 ALTER TABLE `fan` DISABLE KEYS */;
-INSERT INTO `fan` VALUES (1,'min_temp','25'),(2,'max_temp','40'),(3,'min_fan','0'),(4,'max_fan','50');
+INSERT INTO `fan` VALUES (1,'min_temp','25'),(2,'max_temp','40'),(3,'min_fan','0'),(4,'max_fan','20');
 /*!40000 ALTER TABLE `fan` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -139,7 +139,7 @@ CREATE TABLE `identity` (
 
 LOCK TABLES `identity` WRITE;
 /*!40000 ALTER TABLE `identity` DISABLE KEYS */;
-INSERT INTO `identity` VALUES (1,'hostname','nearon-iot-slb'),(2,'password','Rasp8266!');
+INSERT INTO `identity` VALUES (1,'hostname','development-iot'),(2,'password','Rasp8266!');
 /*!40000 ALTER TABLE `identity` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -164,7 +164,7 @@ CREATE TABLE `info` (
 
 LOCK TABLES `info` WRITE;
 /*!40000 ALTER TABLE `info` DISABLE KEYS */;
-INSERT INTO `info` VALUES (1,'temp','39'),(2,'humidity','53'),(3,'cpu_temp','52.1'),(4,'cpu_usage','34.1 %'),(5,'memory','15% (585/3844 MB)'),(6,'storage','16% (4.6/29 GB)'),(7,'uptime','0 hour  00 minute  37 seconds'),(8,'boot_time','2025-07-14 06:47:15'),(9,'fan','46');
+INSERT INTO `info` VALUES (1,'temp','0.0'),(2,'humidity','0.0'),(3,'cpu_temp','65.2'),(4,'cpu_usage','100.0 %'),(5,'memory','10% (397/3844 MB)'),(6,'storage','15% (4.3/29 GB)'),(7,'uptime','0 hour  00 minute  51 seconds'),(8,'boot_time','2025-08-29 09:07:56'),(9,'fan','20');
 /*!40000 ALTER TABLE `info` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -194,7 +194,7 @@ CREATE TABLE `interface` (
 
 LOCK TABLES `interface` WRITE;
 /*!40000 ALTER TABLE `interface` DISABLE KEYS */;
-INSERT INTO `interface` VALUES ('eth0',0,0,'d8:3a:dd:d1:2a:f0','192.168.1.10','255.255.255.0','',''),('wlan0',1,1,'d8:3a:dd:d1:2a:f1','','','','');
+INSERT INTO `interface` VALUES ('eth0',0,0,'d8:3a:dd:d5:01:3a','192.168.1.10','255.255.255.0','',''),('wlan0',1,1,'d8:3a:dd:5d:5c:0f','','','','');
 /*!40000 ALTER TABLE `interface` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -273,7 +273,7 @@ CREATE TABLE `services` (
   `state` tinyint(1) NOT NULL,
   `autostart` tinyint(1) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=COMPACT;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=COMPACT;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -282,7 +282,7 @@ CREATE TABLE `services` (
 
 LOCK TABLES `services` WRITE;
 /*!40000 ALTER TABLE `services` DISABLE KEYS */;
-INSERT INTO `services` VALUES (2,'nearon_auth','/home/connex/project/auth','/usr/bin/python3 nearon_auth.py',1,1),(3,'nearon_routine','/home/connex/project/monitoring','/usr/bin/python3 nearon_routine.py',1,1),(4,'nearon_alarm','/home/connex/project/monitoring','/usr/bin/python3 nearon_alarm.py',1,1),(5,'nearon_buffer','/home/connex/project/monitoring','/usr/bin/python3 nearon_buffer.py',1,1),(6,'nearon_sync','/home/connex/project/synchronize','/usr/bin/python3 nearon_sync.py',1,1),(7,'nearon_notif','/home/connex/project/notification/','/usr/bin/python3 nearon_notif.py',1,1),(8,'nearon_log','/home/connex/project/log/','/usr/bin/python3 nearon_log.py',1,1),(9,'nearon_display','/home/connex/project/display','/usr/bin/python3 nearon_display.py',1,1),(10,'sensor1','/home/connex/project/sensor/','/usr/bin/python3 sensor1.py',1,1),(11,'sensor2','/home/connex/project/sensor/','/usr/bin/python3 sensor2.py',1,1),(12,'actuator1','/home/connex/project/actuator','/usr/bin/python3 actuator1.py',1,1);
+INSERT INTO `services` VALUES (2,'nearon_auth','/home/connex/project/auth','/usr/bin/python3 nearon_auth.py',1,1),(3,'nearon_routine','/home/connex/project/monitoring','/usr/bin/python3 nearon_routine.py',1,1),(4,'nearon_alarm','/home/connex/project/monitoring','/usr/bin/python3 nearon_alarm.py',1,1),(5,'nearon_buffer','/home/connex/project/monitoring','/usr/bin/python3 nearon_buffer.py',1,1),(6,'nearon_sync','/home/connex/project/synchronize','/usr/bin/python3 nearon_sync.py',1,1),(7,'nearon_notif','/home/connex/project/notification/','/usr/bin/python3 nearon_notif.py',1,1),(8,'nearon_log','/home/connex/project/log/','/usr/bin/python3 nearon_log.py',1,1),(9,'nearon_display','/home/connex/project/display','/usr/bin/python3 nearon_display.py',1,1),(10,'sensor1','/home/connex/project/sensor/','/usr/bin/python3 sensor1.py',1,1),(11,'sensor2','/home/connex/project/sensor/','/usr/bin/python3 sensor2.py',1,1),(12,'actuator1','/home/connex/project/actuator','/usr/bin/python3 actuator1.py',1,1),(13,'actuator2','/home/connex/project/actuator','/usr/bin/python3 actuator2.py',1,1);
 /*!40000 ALTER TABLE `services` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -338,7 +338,7 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES (5,'super','pbkdf2:sha256:50000$SfPXHgAW$7f52ff8caa7fcb29598eaaea5aaaaab0b8c1ac2751becb8fd4dca8de535b9810',1,0,'2025-07-01 10:48:55',0,'2025-07-12 13:49:52','2021-08-28 13:31:42'),(6,'admin','pbkdf2:sha256:50000$kOhHyFxh$bba765d99350895bc214fa4fd68c03959d04127b8ce7e6fbf3c80b1ad4c5b00e',0,0,'2024-08-07 17:14:18',0,'2025-07-09 00:41:09','2021-08-28 13:32:15');
+INSERT INTO `user` VALUES (5,'super','pbkdf2:sha256:50000$SfPXHgAW$7f52ff8caa7fcb29598eaaea5aaaaab0b8c1ac2751becb8fd4dca8de535b9810',1,1,'2025-08-27 09:32:48',1,'2025-08-27 10:50:47','2021-08-28 13:31:42'),(6,'admin','pbkdf2:sha256:50000$kOhHyFxh$bba765d99350895bc214fa4fd68c03959d04127b8ce7e6fbf3c80b1ad4c5b00e',0,0,'2024-08-07 17:14:18',0,'2025-01-20 17:01:29','2021-08-28 13:32:15');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -379,4 +379,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-07-14  6:47:56
+-- Dump completed on 2025-08-29  9:08:50

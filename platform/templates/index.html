@@ -1,4 +1,23 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} 
+{% block content %}
+<style>
+
+	.status-online {
+		animation: pulse 2s infinite;
+	}
+	
+	.status-offline {
+		animation: shake 0.5s ease-in-out;
+	}
+	
+	.info-box.bg-success {
+		box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+	}
+	
+	.info-box.bg-danger {
+		box-shadow: 0 0 10px rgba(220, 53, 69, 0.3);
+	}
+</style>
 {% if status == 1 %}
 <div class="row">
 	<div class="col-md-12">
@@ -20,6 +39,45 @@
 </div>
 {% endif %}
 <script type="text/javascript">
+	// Fungsi untuk mengecek koneksi internet
+	function checkInternetConnection() {
+		return new Promise((resolve) => {
+			// Coba ping ke Google DNS (8.8.8.8) atau Cloudflare DNS (1.1.1.1)
+			const img = new Image();
+			img.onload = function() {
+				resolve(true); // Internet terhubung
+			};
+			img.onerror = function() {
+				resolve(false); // Internet tidak terhubung
+			};
+			// Gunakan timestamp untuk menghindari cache
+			img.src = 'https://www.google.com/favicon.ico?' + new Date().getTime();
+			
+			// Timeout setelah 3 detik
+			setTimeout(() => {
+				resolve(false);
+			}, 3000);
+		});
+	}
+
+	// Fungsi untuk memperbarui status internet
+	function updateInternetStatus() {
+		checkInternetConnection().then(isConnected => {
+			const statusElement = document.getElementById('status');
+			const statusBox = statusElement.closest('.info-box');
+			
+			if (isConnected) {
+				statusElement.innerHTML = '<i class="fas fa-check-circle me-2"></i> ONLINE';
+				statusElement.className = 'text-white fw-bold status-online';
+				statusBox.className = 'info-box bg-success border border-success';
+			} else {
+				statusElement.innerHTML = '<i class="fas fa-times-circle me-2"></i> OFFLINE';
+				statusElement.className = 'text-white fw-bold status-offline';
+				statusBox.className = 'info-box bg-danger border border-danger';
+			}
+		});
+	}
+
 	function info() {
 		$.ajax({
 			type: "GET",
@@ -36,10 +94,21 @@
 				document.getElementById('uptime').innerHTML = data2.uptime;
 				document.getElementById('last').innerHTML = data2.last;
 				document.getElementById('fan').innerHTML = data2.fan + " %";
+				
+				// Cek status internet
+				updateInternetStatus();
 			}
 		});
 	}
+	
+	// Jalankan pengecekan pertama kali
+	updateInternetStatus();
+	
+	// Update info setiap 1 detik
 	setInterval(info, 1000);
+	
+	// Update status internet setiap 10 detik
+	setInterval(updateInternetStatus, 10000);
 </script>
 
 <div class="row">
@@ -66,6 +135,21 @@
 					<div class="tab-pane fade show active" id="custom-tabs-one-info" role="tabpanel"
 						aria-labelledby="custom-tabs-one-info-tab">
 						<div class="row justify-content-center">
+							<div class="col-md-3 col-sm-6 col-12">
+								<div class="info-box bg-gradient-info">
+									<span class="info-box-icon"><i
+											class="fas fa-signal"></i></span>
+									<div class="info-box-content">
+										<span
+											class="info-box-text">Status Device</span>
+										<span class="info-box-number">
+											<div id="status" class="text-center">
+												<i class="fas fa-spinner fa-spin me-2"></i> Checking...
+											</div>
+										</span>
+									</div>
+								</div>
+							</div>
 							<div class="col-md-3 col-sm-6 col-12">
 								<div class="info-box bg-gradient-info">
 									<span class="info-box-icon"><i
