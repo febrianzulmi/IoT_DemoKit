@@ -9,23 +9,36 @@ from dbFunction import dbFunction
 class serverFunction(): 
     def processHttpApi(serverSetting, type, uid, parameter, api):
         state = False
-        if parameter.lower() == "sensor" or parameter.lower() == "actuator" or parameter.lower() == 'node' or parameter.lower() == 'reboot' or parameter.lower() == 'receiver':
+        
+        # Khusus untuk status-storage dan status-device, gunakan domain dev-nearon.synapsis.id
+        if parameter.lower() == 'status-storage' or parameter.lower() == 'status-device':
             endpoint = api.replace("nodeid", uid)
-        else:
-            endpoint = f"{api}"     
-            
-        if type == '0':
-            if serverSetting['domainAddress'] == '' or serverSetting['domainAddress'] == '-' or serverSetting['port'] == '' or serverSetting['port'] == '-' or endpoint == '':
-                url =  'N/A'
+            if endpoint != '':
+                url = f"https://dev-nearon.synapsis.id{endpoint}"
+                state = True
             else:
-                url = 'http://' + str(serverSetting['ipAddress']) + ":" + str(serverSetting['port']) + str(endpoint)
-        elif type == '1':
-            if serverSetting['domainAddress'] == '' or serverSetting['domainAddress'] == '-' or endpoint == '':
                 url = 'N/A'
+        else:
+            # Untuk parameter lainnya, gunakan logika normal
+            if parameter.lower() == "sensor" or parameter.lower() == "actuator" or parameter.lower() == 'node' or parameter.lower() == 'reboot' or parameter.lower() == 'receiver':
+                endpoint = api.replace("nodeid", uid)
             else:
-                url = 'https://' + str(serverSetting['domainAddress']) + str(endpoint)
-        if url != 'N/A':
-            state = True 
+                endpoint = f"{api}"
+            
+            if type == '0':
+                if serverSetting['domainAddress'] == '' or serverSetting['domainAddress'] == '-' or serverSetting['port'] == '' or serverSetting['port'] == '-' or endpoint == '':
+                    url = 'N/A'
+                else:
+                    url = 'http://' + str(serverSetting['ipAddress']) + ":" + str(serverSetting['port']) + str(endpoint)
+            elif type == '1':
+                if serverSetting['domainAddress'] == '' or serverSetting['domainAddress'] == '-' or endpoint == '':
+                    url = 'N/A'
+                else:
+                    url = 'https://' + str(serverSetting['domainAddress']) + str(endpoint)
+            
+            if url != 'N/A':
+                state = True
+        
         result = {'data': url, 'state': state}  
         return result
 

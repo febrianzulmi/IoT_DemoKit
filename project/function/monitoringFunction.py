@@ -3,6 +3,7 @@ path = "/home/connex"
 import datetime 
 import json
 import sys
+import psutil
 
 sys.path.append(f"{path}/library")
 from SynapsisLibrary import packData, times
@@ -15,6 +16,7 @@ from mqttProtocolFunction import mqttProtocolFunction
 from serverFunction import serverFunction
 from dbFunction import dbFunction
 from sensorFunction import SensorFunction
+
 
 
 class monitoringFunction():
@@ -249,6 +251,205 @@ class monitoringFunction():
         return resultBuffer
 
 
+    def getStorageUsage():
+            
+            try:
+                # Import database connection untuk synapsis_control
+                sys.path.append('/home/connex/project/database')
+                from sql_connex import info as infoDB
+                
+                # Ambil data storage dari database
+                storage_data = infoDB.selectByName('storage')
+                
+                if len(storage_data) > 0:
+                    storage_value = storage_data[0]['value']  # Format: "27% (7.7/29 GB)"
+                    
+                    # Parse data dari format "27% (7.7/29 GB)"
+                    import re
+                    match = re.match(r'(\d+)%\s*\(([\d.]+)/([\d.]+)\s*GB\)', storage_value)
+                    
+                    if match:
+                        usage_percentage = float(match.group(1))
+                        used_gb = float(match.group(2))
+                        total_gb = float(match.group(3))
+                        free_gb = total_gb - used_gb
+                        
+                        return {
+                            "total_gb": total_gb,
+                            "used_gb": used_gb,
+                            "free_gb": round(free_gb, 2),
+                            "usage_percentage": usage_percentage
+                        }
+                    else:
+                        # Jika format tidak sesuai, gunakan psutil sebagai fallback
+                        return monitoringFunction.getStorageUsageFromSystem()
+                else:
+                    # Jika tidak ada data di database, gunakan psutil sebagai fallback
+                    return monitoringFunction.getStorageUsageFromSystem()
+                    
+            except Exception as e:
+                # Jika terjadi error, gunakan psutil sebagai fallback
+                return monitoringFunction.getStorageUsageFromSystem()
+
+    def getStorageUsageFromSystem():
+            
+            try:
+                # Dapatkan informasi disk usage untuk root partition (/)
+                disk_usage = psutil.disk_usage('/')
+                
+                # Hitung persentase storage yang digunakan
+                total_bytes = disk_usage.total
+                used_bytes = disk_usage.used
+                free_bytes = disk_usage.free
+                
+                # Konversi ke GB untuk kemudahan pembacaan
+                total_gb = total_bytes / (1024**3)
+                used_gb = used_bytes / (1024**3)
+                free_gb = free_bytes / (1024**3)
+                
+                # Hitung persentase usage
+                usage_percentage = (used_bytes / total_bytes) * 100
+                
+                return {
+                    "total_gb": round(total_gb, 2),
+                    "used_gb": round(used_gb, 2),
+                    "free_gb": round(free_gb, 2),
+                    "usage_percentage": round(usage_percentage, 2)
+                }
+            except Exception as e:
+                # Jika terjadi error, return default values
+                return {
+                    "total_gb": 0,
+                    "used_gb": 0,
+                    "free_gb": 0,
+                    "usage_percentage": 0,
+                    "error": str(e)
+                }
+
+
+
+    def runStatusStorage(serverConfig, globalVariable):
+        """Fungsi untuk mengirim status storage setiap 1 menit"""
+        timestamp = times.getDatetime()
+        deviceSetting = dbFunction.getDeviceSetting()
+        
+        # Dapatkan data storage asli dari Raspberry Pi
+        storage_info = monitoringFunction.alarmMonitoringProcess.getStorageUsage()
+        
+        # Data yang akan dikirim dengan informasi storage asli
+        statusData = {
+            "device_storage": str(storage_info["used_gb"])
+        }
+        
+        # Dapatkan URL Status Storage dari database (tidak hardcode)
+        urlEndpoint = serverFunction.getServerDataByServerAndParameter('http', 'status-storage')
+        
+        if not urlEndpoint['state']:
+            resultStatus = {"state": "Failed", "log": "Status Storage URL not found in database", "stateCode": 404, "payload": {}}
+            logService = "Status Storage {} - {}".format(resultStatus['state'], resultStatus['log'])
+            colorLogService = "\033[31m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+            SystemServiceDB.updateStatusByName(logService, timestamp, globalVariable['serviceName'])
+            return resultStatus
+        
+        # Gunakan URL dari database
+        statusStorageURL = urlEndpoint['data']
+    
+        
+        httpAuth = serverFunction.getServerHttpAuth()
+        
+        if str(httpAuth['state']) == '1':
+            
+            from SynapsisLibrary import http
+            
+            # Kirim status storage menggunakan library yang sudah ada
+            httpData = http.put(url=statusStorageURL, data=statusData, token=httpAuth['token'], timeout=60)
+            
+            if int(httpData['state']) == 200:
+                resultStatus = {"state": "Success", "log": "Status storage updated successfully", "stateCode": 200, "payload": httpData['payload']}
+            else:
+                resultStatus = {"state": "Failed", "log": f"HTTP {httpData['state']}: {httpData['message']}", "stateCode": httpData['state'], "payload": httpData['payload']}
+        else:
+            resultStatus = {"state": "Failed", "log": "Token N/A", "stateCode": 401, "payload": {}}
+        
+        if resultStatus['state'] == "Success":
+            logService = "Status Storage {} - {} (Usage: {}%, Free: {}GB/{}GB)".format(
+                resultStatus['state'], resultStatus['log'], 
+                storage_info["usage_percentage"], 
+                storage_info["free_gb"], 
+                storage_info["total_gb"]
+            )
+            colorLogService = "\033[92m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+        else:
+            logService = "Status Storage {} - {} (Usage: {}%, Free: {}GB/{}GB)".format(
+                resultStatus['state'], resultStatus['log'],
+                storage_info["usage_percentage"], 
+                storage_info["free_gb"], 
+                storage_info["total_gb"]
+            )
+            colorLogService = "\033[31m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+        
+        SystemServiceDB.updateStatusByName(logService, timestamp, globalVariable['serviceName'])
+        return resultStatus
+
+    def runStatusDevice(serverConfig, globalVariable):
+        """Fungsi untuk mengirim status device setiap 1 menit"""
+        timestamp = times.getDatetime()
+        deviceSetting = dbFunction.getDeviceSetting()
+        
+        # Data yang akan dikirim
+        statusData = {"heartbeat": True}
+        
+        # Dapatkan URL Status Device dari database (tidak hardcode)
+        urlEndpoint = serverFunction.getServerDataByServerAndParameter('http', 'status-device')
+        
+        if not urlEndpoint['state']:
+            resultStatus = {"state": "Failed", "log": "Status Device URL not found in database", "stateCode": 404, "payload": {}}
+            logService = "Status Device {} - {}".format(resultStatus['state'], resultStatus['log'])
+            colorLogService = "\033[31m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+            SystemServiceDB.updateStatusByName(logService, timestamp, globalVariable['serviceName'])
+            return resultStatus
+        
+        # Gunakan URL dari database
+        statusStorageURL = urlEndpoint['data']
+        
+        # Dapatkan authentication untuk domain dev-nearon.synapsis.id
+        # Domain ini menggunakan cookie authentication, bukan Bearer token
+        # Gunakan library SynapsisLibrary yang sudah ada
+        
+        # Dapatkan token dari domain existing (dev-api-nearon.synapsis.id)
+        httpAuth = serverFunction.getServerHttpAuth()
+        
+        if str(httpAuth['state']) == '1':
+            # Gunakan library SynapsisLibrary untuk PUT request
+            from SynapsisLibrary import http
+            
+            # Kirim status device menggunakan library yang sudah ada
+            httpData = http.put(url=statusStorageURL, data=statusData, token=httpAuth['token'], timeout=60)
+            
+            if int(httpData['state']) == 200:
+                resultStatus = {"state": "Success", "log": "Status device updated successfully", "stateCode": 200, "payload": httpData['payload']}
+            else:
+                resultStatus = {"state": "Failed", "log": f"HTTP {httpData['state']}: {httpData['message']}", "stateCode": httpData['state'], "payload": httpData['payload']}
+        else:
+            resultStatus = {"state": "Failed", "log": "Token N/A", "stateCode": 401, "payload": {}}
+        
+        if resultStatus['state'] == "Success":
+            logService = "Status Device {} - {}".format(resultStatus['state'], resultStatus['log'])
+            colorLogService = "\033[92m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+        else:
+            logService = "Status Device {} - {}".format(resultStatus['state'], resultStatus['log'])
+            colorLogService = "\033[31m{} at {}\033[00m".format(logService, timestamp)
+            print("{}\n".format(colorLogService))
+        
+        SystemServiceDB.updateStatusByName(logService, timestamp, globalVariable['serviceName'])
+        return resultStatus
+
+
     class alarmMonitoringProcess():
         def checkToleranceAlarmData(sensorAlarmList, timestampAlarm, tolerancePack):
             for x in range(len(sensorAlarmList)):
@@ -338,3 +539,79 @@ class monitoringFunction():
                 
                 if len(checkAlarm) == 0: 
                     LogAlarmDB.updateFlag(2, alarmId)
+
+        def getStorageUsage():
+            
+            try:
+                # Import database connection untuk synapsis_control
+                sys.path.append('/home/connex/project/database')
+                from sql_connex import info as infoDB
+                
+                # Ambil data storage dari database
+                storage_data = infoDB.selectByName('storage')
+                
+                if len(storage_data) > 0:
+                    storage_value = storage_data[0]['value']  # Format: "27% (7.7/29 GB)"
+                    
+                    # Parse data dari format "27% (7.7/29 GB)"
+                    import re
+                    match = re.match(r'(\d+)%\s*\(([\d.]+)/([\d.]+)\s*GB\)', storage_value)
+                    
+                    if match:
+                        usage_percentage = float(match.group(1))
+                        used_gb = float(match.group(2))
+                        total_gb = float(match.group(3))
+                        free_gb = total_gb - used_gb
+                        
+                        return {
+                            "total_gb": total_gb,
+                            "used_gb": used_gb,
+                            "free_gb": round(free_gb, 2),
+                            "usage_percentage": usage_percentage
+                        }
+                    else:
+                        # Jika format tidak sesuai, gunakan psutil sebagai fallback
+                        return monitoringFunction.getStorageUsageFromSystem()
+                else:
+                    # Jika tidak ada data di database, gunakan psutil sebagai fallback
+                    return monitoringFunction.getStorageUsageFromSystem()
+                    
+            except Exception as e:
+                # Jika terjadi error, gunakan psutil sebagai fallback
+                return monitoringFunction.getStorageUsageFromSystem()
+
+        def getStorageUsageFromSystem():
+            
+            try:
+                # Dapatkan informasi disk usage untuk root partition (/)
+                disk_usage = psutil.disk_usage('/')
+                
+                # Hitung persentase storage yang digunakan
+                total_bytes = disk_usage.total
+                used_bytes = disk_usage.used
+                free_bytes = disk_usage.free
+                
+                # Konversi ke GB untuk kemudahan pembacaan
+                total_gb = total_bytes / (1024**3)
+                used_gb = used_bytes / (1024**3)
+                free_gb = free_bytes / (1024**3)
+                
+                # Hitung persentase usage
+                usage_percentage = (used_bytes / total_bytes) * 100
+                
+                return {
+                    "total_gb": round(total_gb, 2),
+                    "used_gb": round(used_gb, 2),
+                    "free_gb": round(free_gb, 2),
+                    "usage_percentage": round(usage_percentage, 2)
+                }
+            except Exception as e:
+                # Jika terjadi error, return default values
+                return {
+                    "total_gb": 0,
+                    "used_gb": 0,
+                    "free_gb": 0,
+                    "usage_percentage": 0,
+                    "error": str(e)
+                }
+
