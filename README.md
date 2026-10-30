@@ -4,6 +4,8 @@ v1.0.0 (02 Juni 2025)
 
 
 <img width="400" height="600" alt="image" src="https://github.com/user-attachments/assets/b77e0c0b-cad0-47d0-9e93-4561b86e773c" />
+<img width="400" height="600" alt="image" src="https://github.com/user-attachments/assets/319ad058-286d-46e3-bde8-2a46a8826128" />
+
 
 ## Structure Directory        
 - Project Location : /home/connex/project
